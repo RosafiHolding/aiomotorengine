@@ -21,35 +21,27 @@ setup(
     name='aiomotorengine',
     version=__version__,
     description='AIOMotorEngine is an asynchronous MongoDB ORM. AIOMotorEngine uses Asyncio\'s event loop and Motor as a driver.',
-    long_description='''
-AIOMotorEngine is an asynchronous MongoDB ORM. AIOMotorEngine uses Asyncio's event loop and Motor as a driver.
-''',
     keywords='database mongodb asyncio python',
-    author='ilex',
-    # author_email='heynemann@gmail.com',
-    url='http://github.com/ilex/aiomotorengine/',
+    author='Rosafi Holding',
+    url='git@178.18.31.15:open/aiomotorengine.git',
     license='MIT',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
-        'License :: OSI Approved :: MIT License',
         'Natural Language :: English',
         'Operating System :: MacOS',
         'Operating System :: POSIX',
         'Operating System :: Unix',
         'Operating System :: OS Independent',
-        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.4+',
     ],
-    # packages=find_packages(),
     packages=['aiomotorengine'],
     include_package_data=True,
     install_requires=[
         'pymongo==2.8',
-        'motor==0.5',
+        'motor',
         'six',
         'easydict'
-    ],
-    dependency_links=[  # 'https://github.com/mongodb/motor/archive/master.zip#egg=motor-0.5.dev0'
     ],
     use_2to3=True,
     extras_require={

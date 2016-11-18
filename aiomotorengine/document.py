@@ -1,3 +1,4 @@
+import asyncio
 import six
 
 from aiomotorengine.metaclasses import DocumentMetaClass
@@ -22,12 +23,14 @@ class BaseDocument(object):
 
         for key, value in kw.items():
             if key not in self._db_field_map:
-                self._fields[key] = DynamicField(db_field="_%s" % key.lstrip('_'))
+                self._fields[key] = DynamicField(db_field="%s" % key.lstrip('_'))
             self._values[key] = value
 
     @classmethod
-    async def ensure_index(cls):
-        return await cls.objects.ensure_index()
+    @asyncio.coroutine
+    def ensure_index(cls):
+        result = yield from cls.objects.ensure_index()
+        return result
 
     @property
     def is_lazy(self):
@@ -92,13 +95,16 @@ class BaseDocument(object):
 
         return True
 
-    async def save(self, alias=None):
+    @asyncio.coroutine
+    def save(self, alias=None):
         '''
         Creates or updates the current instance of this document.
         '''
-        return await self.objects.save(self, alias=alias)
+        result = yield from self.objects.save(self, alias=alias)
+        return result
 
-    async def delete(self, alias=None):
+    @asyncio.coroutine
+    def delete(self, alias=None):
         '''
         Deletes the current instance of this Document.
 
@@ -124,7 +130,8 @@ class BaseDocument(object):
 
             io_loop.run_until_complete(create_user())
         '''
-        return await self.objects.remove(instance=self, alias=alias)
+        result = yield from self.objects.remove(instance=self, alias=alias)
+        return result
 
     def fill_values_collection(self, collection, field_name, value):
         collection[field_name] = value
@@ -134,7 +141,8 @@ class BaseDocument(object):
             collection[field_name] = []
         collection[field_name].append(value)
 
-    async def load_references(self, fields=None, alias=None):
+    @asyncio.coroutine
+    def load_references(self, fields=None, alias=None):
 
         references = self.find_references(document=self, fields=fields)
         reference_count = len(references)
@@ -149,7 +157,7 @@ class BaseDocument(object):
             dereference_function, document_id, values_collection,
             field_name, fill_values_method
         ) in references:
-            doc = await dereference_function(document_id)
+            doc = yield from dereference_function(document_id)
             if fill_values_method is None:
                 fill_values_method = self.fill_values_collection
 

@@ -1,3 +1,4 @@
+import asyncio
 import six
 from easydict import EasyDict as edict
 
@@ -134,13 +135,14 @@ class Aggregation(object):
     def get_instance(self, item):
         return self.queryset.__klass__.from_son(item)
 
-    async def fetch(self, alias=None):
+    @asyncio.coroutine
+    def fetch(self, alias=None):
         coll = self.queryset.coll(alias)
         results = []
         try:
             # from motor-0.5 coll.aggregate return AsyncIOMotorAggregateCursor
             # and can be used in async for
-            async for item in coll.aggregate(self.to_query()):
+            for item in (yield from coll.aggregate(self.to_query())):
                 self.fill_ids(item)
                 results.append(edict(item))
         except Exception as e:

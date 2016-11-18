@@ -1,3 +1,4 @@
+import asyncio
 import sys
 
 from pymongo.errors import DuplicateKeyError
@@ -34,7 +35,8 @@ class QuerySet(object):
 
         return conn[self.__klass__.__collection__]
 
-    async def create(self, alias=None, **kwargs):
+    @asyncio.coroutine
+    def create(self, alias=None, **kwargs):
         '''
         Creates and saved a new instance of the document.
 
@@ -59,28 +61,32 @@ class QuerySet(object):
             io_loop.run_until_complete(create_user())
         '''
         document = self.__klass__(**kwargs)
-        return await self.save(document=document, alias=alias)
+        result = yield from self.save(document=document, alias=alias)
+        return result
 
     def update_field_on_save_values(self, document, creating):
         for field_name, field in self.__klass__._fields.items():
             if field.on_save is not None:
                 setattr(document, field_name, field.on_save(document, creating))
 
-    async def save(self, document, alias=None):
+    @asyncio.coroutine
+    def save(self, document, alias=None):
         if self.validate_document(document):
-            await self.ensure_index(alias=alias)
-            return await self.save_document(document, alias=alias)
+            yield from self.ensure_index(alias=alias)
+            result = self.save_document(document, alias=alias)
+            return result
 
-    async def save_document(self, document, alias=None):
+    @asyncio.coroutine
+    def save_document(self, document, alias=None):
         ''' Insert or update document '''
         self.update_field_on_save_values(document, document._id is not None)
         doc = document.to_son()
 
         if document._id is not None:
-            await self.coll(alias).update({'_id': document._id}, doc)
+            yield from self.coll(alias).update({'_id': document._id}, doc)
         else:
             try:
-                doc_id = await self.coll(alias).insert(doc)
+                doc_id = yield from self.coll(alias).insert(doc)
             except DuplicateKeyError as e:
                 raise UniqueKeyViolationError.from_pymongo(
                     str(e), self.__klass__
@@ -97,7 +103,8 @@ class QuerySet(object):
 
         return document.validate()
 
-    async def bulk_insert(self, documents, callback=None, alias=None):
+    @asyncio.coroutine
+    def bulk_insert(self, documents, callback=None, alias=None):
         '''
         Inserts all documents passed to this method in one go.
         '''
@@ -123,7 +130,7 @@ class QuerySet(object):
         if not is_valid:
             return
 
-        doc_ids = await self.coll(alias).insert(docs_to_insert)
+        doc_ids = yield from self.coll(alias).insert(docs_to_insert)
 
         for object_index, object_id in enumerate(doc_ids):
             documents[object_index]._id = object_id
@@ -142,7 +149,8 @@ class QuerySet(object):
 
         return result
 
-    async def update(self, definition, alias=None):
+    @asyncio.coroutine
+    def update(self, definition, alias=None):
 
         definition = self.transform_definition(definition)
 
@@ -155,14 +163,15 @@ class QuerySet(object):
             document={'$set': definition},
             multi=True,
         )
-        res = await self.coll(alias).update(**update_arguments)
+        res = yield from self.coll(alias).update(**update_arguments)
         return edict({
             "count": int(res['n']),
             "updated_existing": res['updatedExisting']
         })
 
     # TODO rewrite docstring
-    async def delete(self, alias=None):
+    @asyncio.coroutine
+    def delete(self, alias=None):
         '''
         Removes all instances of this document that match the specified filters (if any).
 
@@ -189,23 +198,25 @@ class QuerySet(object):
 
             io_loop.run_until_complete(saving_delete())
         '''
+        result = yield from self.remove(alias=alias)
+        return result
 
-        return await self.remove(alias=alias)
-
-    async def remove(self, instance=None, alias=None):
+    @asyncio.coroutine
+    def remove(self, instance=None, alias=None):
 
         if instance is not None:
             if hasattr(instance, '_id') and instance._id:
-                res = await self.coll(alias).remove(instance._id)
+                res = yield from self.coll(alias).remove(instance._id)
         else:
             if self._filters:
                 remove_filters = self.get_query_from_filters(self._filters)
-                res = await self.coll(alias).remove(remove_filters)
+                res = yield from self.coll(alias).remove(remove_filters)
             else:
-                res = await self.coll(alias).remove()
+                res = yield from self.coll(alias).remove()
         return res['n']
 
-    async def get(self, id=None, alias=None, **kwargs):
+    @asyncio.coroutine
+    def get(self, id=None, alias=None, **kwargs):
         '''
         Gets a single item of the current queryset collection using it's id.
 
@@ -228,7 +239,7 @@ class QuerySet(object):
             filters = Q(**kwargs)
             filters = self.get_query_from_filters(filters)
 
-        instance = await self.coll(alias).find_one(filters)
+        instance = yield from self.coll(alias).find_one(filters)
         if instance is None:
             return None
         else:
@@ -236,7 +247,7 @@ class QuerySet(object):
             if self.is_lazy:
                 return doc
             else:
-                await doc.load_references()
+                yield from doc.load_references()
                 return doc
 
     def get_query_from_filters(self, filters):
@@ -383,7 +394,8 @@ class QuerySet(object):
         self._order_fields.append((field.db_field, direction))
         return self
 
-    async def find_all(self, lazy=None, alias=None):
+    @asyncio.coroutine
+    def find_all(self, lazy=None, alias=None):
         '''
         Returns a list of items in the current queryset collection that match specified filters (if any).
 
@@ -405,38 +417,40 @@ class QuerySet(object):
 
         self._filters = {}
 
-        docs = await cursor.to_list(**to_list_arguments)
+        docs = yield from cursor.to_list(**to_list_arguments)
 
         result = []
         for doc in docs:
             obj = self.__klass__.from_son(doc)
 
             if (lazy is not None and not lazy) or not obj.is_lazy:
-                await obj.load_references(obj._fields)
+                yield from obj.load_references(obj._fields)
 
             result.append(obj)
 
         return result
 
-    async def count(self, alias=None):
+    @asyncio.coroutine
+    def count(self, alias=None):
         '''
         Returns the number of documents in the collection that match the specified filters, if any.
         '''
         cursor = self._get_find_cursor(alias=alias)
         self._filters = {}
-        return await cursor.count()
+        result = yield from cursor.count()
+        return result
 
     @property
     def aggregate(self):
         return Aggregation(self)
 
-    async def ensure_index(self, alias=None):
+    @asyncio.coroutine
+    def ensure_index(self, alias=None):
         indexes = []
         for field_name, field in list(self.__klass__._fields.items()):
             if field.unique:
                 indexes.append(field.db_field)
 
         for index in indexes:
-            await self.coll(alias).ensure_index(
-                index, unique=True, alias=alias)
+            yield from self.coll(alias).ensure_index(index, unique=True, alias=alias)
         return len(indexes)
