@@ -38,7 +38,7 @@ setup(
     packages=['aiomotorengine'],
     include_package_data=True,
     install_requires=[
-        'pymongo==2.8',
+        'pymongo',
         'motor',
         'six',
         'easydict'
