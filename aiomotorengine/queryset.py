@@ -73,7 +73,7 @@ class QuerySet(object):
     def save(self, document, alias=None):
         if self.validate_document(document):
             yield from self.ensure_index(alias=alias)
-            result = self.save_document(document, alias=alias)
+            result = yield from self.save_document(document, alias=alias)
             return result
 
     @asyncio.coroutine
