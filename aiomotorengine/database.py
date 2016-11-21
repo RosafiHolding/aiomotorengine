@@ -1,11 +1,15 @@
+import asyncio
+
 
 class Database(object):
     def __init__(self, connection, database):
         self.connection = connection
         self.database = database
 
-    async def ping(self):
-        return await self.connection.admin.command('ping')
+    @asyncio.coroutine
+    def ping(self):
+        result = yield from self.connection.admin.command('ping')
+        return result
 
     def disconnect(self):
         return self.connection.disconnect()
