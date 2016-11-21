@@ -2,19 +2,9 @@
 # code adapted from https://github.com/heynemann/aiomotorengine/blob/master/motorengine/connection.py
 
 import sys
-
-try:
-    import six
-except ImportError:
-    pass
-
-try:
-    from motor.motor_asyncio import (
-        AsyncIOMotorClient as MotorClient,
-        AsyncIOMotorReplicaSetClient as MotorReplicaSetClient
-    )
-except ImportError:
-    pass
+import six
+from motor.motor_asyncio import AsyncIOMotorClient as MotorClient
+from motor.motor_asyncio import AsyncIOMotorReplicaSetClient as MotorReplicaSetClient
 
 from aiomotorengine.database import Database
 
